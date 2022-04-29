@@ -4,7 +4,7 @@ import Autocomplete from '@mui/material/Autocomplete';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import InputAdornment from '@mui/material/InputAdornment';
-import {useEffect, useState} from "react";
+import {useEffect, useState, Fragment} from "react";
 import { BigNumber, Contract, ethers, utils } from 'ethers';
 import NalaRouterAbi from "../ABIS/NalaRouter.json"
 import {tokens} from "../utils/availableTokens";
@@ -16,7 +16,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 export default function HomePage () {
 
     const [tokenIn, setTokenIn] = useState(tokens[0]);
-    const [tokenOut, setTokenOut] = useState(tokens[2]);
+    const [tokenOut, setTokenOut] = useState(tokens[1]);
 
     const [amountIn, setAmountIn] = useState(0);
     const [amountOut, setAmountOut] = useState(0);
@@ -26,11 +26,21 @@ export default function HomePage () {
 
     const [loadingTransaction, setLoadingTransaction] = useState(false);
 
+    const contractAddress = "0xD4B10Be92Db6A7b08e09D7509dF9b889d297Da1C";
+
+    useEffect(() => {
+        const getBalances = async () => {
+            setTokenInBalance(await getTokenBalance(tokenIn.address));
+            setTokenOutBalance(await getTokenBalance(tokenOut.address));
+        }
+       getBalances();
+    },[]);
+
     const swapExactTokensForBNB = async (tokenIn, amountIn, signer, nalaRouter) => {
         setLoadingTransaction(true);
         try {
             const tokenInContract = new ethers.Contract(tokenIn.address, ["function approve(address _spender, uint256 _value) public returns (bool success)"], signer)
-            await tokenInContract.connect(signer).approve("0x6574F3dea1EB56b9F2e752cB93b7Cc8739176cd5", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+            await tokenInContract.connect(signer).approve(contractAddress, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
             const tx = await nalaRouter.connect(signer).swapExactTokensForBNB(
                 tokenIn.address, 
                 ethers.utils.parseEther(amountIn.toString()),
@@ -67,7 +77,7 @@ export default function HomePage () {
         setLoadingTransaction(true);
         try {
             const tokenInContract = new ethers.Contract(tokenIn.address, ["function approve(address _spender, uint256 _value) public returns (bool success)"], signer)
-            await tokenInContract.connect(signer).approve("0x6574F3dea1EB56b9F2e752cB93b7Cc8739176cd5", "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+            await tokenInContract.connect(signer).approve(contractAddress, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
             const tx = await nalaRouter.connect(signer).swapExactTokensForTokens(
                 ethers.utils.parseEther(amountIn.toString()),
                 0,
@@ -87,7 +97,7 @@ export default function HomePage () {
             const signer = provider.getSigner()
             console.log(signer);
             if (signer) {
-              const contract = new ethers.Contract("0x6574F3dea1EB56b9F2e752cB93b7Cc8739176cd5", NalaRouterAbi, signer)
+              const contract = new ethers.Contract(contractAddress, NalaRouterAbi, signer)
               if(tokenIn.label === "BNB") {
                 swapExactBNBForTokens(tokenOut, amountIn, signer, contract);
               } else if (tokenOut.label === "BNB") {
@@ -104,30 +114,18 @@ export default function HomePage () {
         setTokenOut(tokenIn);
     }
 
-    const getTokenInBalance = async (tokenAddress) => {
+    const getTokenBalance = async (tokenAddress) => {
         if (typeof window.ethereum !== 'undefined') {
             const provider = new ethers.providers.Web3Provider(window.ethereum)
             const signer = provider.getSigner();
             if (signer) {
                 const tokenInContract = new ethers.Contract(tokenAddress, ["function balanceOf(address) public view returns (uint256)"], signer);
                 const balance = await tokenInContract.balanceOf(signer.getAddress());
-                setTokenInBalance(formatUnits(BigNumber.from(balance.toString(), 18)));
+                return formatUnits(BigNumber.from(balance.toString(), 18));
             }
         }
     }
 
-    const getTokenOutBalance = async (tokenAddress) => {
-        if (typeof window.ethereum !== 'undefined') {
-            const provider = new ethers.providers.Web3Provider(window.ethereum)
-            const signer = provider.getSigner();
-            if (signer) {
-                const tokenOutContract = new ethers.Contract(tokenAddress, ["function balanceOf(address) public view returns (uint256)"], signer);
-                const balance = await tokenOutContract.balanceOf(signer.getAddress());
-                setTokenOutBalance(formatUnits(BigNumber.from(balance.toString(), 18)));
-            }
-        }
-    }
-    
     return (
         <>
             <Box
@@ -144,13 +142,13 @@ export default function HomePage () {
                     id="selectBox1"
                     options={tokens.filter(token => token.address !== tokenOut.address)}
                     sx={{ width: 300 }}
-                    renderInput={(params) => <TextField {...params} label="Select token to give" />}
+                    renderInput={(params) => <TextField {...params} label={`Balance: ${tokenInBalance}`} /> }
                     style={{border:"1px solid #502199", borderRadius: "10px"}}
                     value={tokenIn.label ? tokenIn.label : "BNB"}
                     onChange={(event, newValue) => {
                         if(newValue.address !== tokenOut.address) {
                             setTokenIn(newValue);
-                            getTokenInBalance(newValue.address);
+                            setTokenInBalance(getTokenBalance(newValue.address));
                             console.log(tokenInBalance);
                         } 
                     }}
@@ -195,13 +193,13 @@ export default function HomePage () {
                     id="selectBox2"
                     options={tokens.filter(token => token.address !== tokenIn.address)}
                     sx={{ width: "80%" }}
-                    renderInput={(params) => <TextField {...params} label="Select token to get" />}
+                    renderInput={(params) => <TextField {...params} label={`Balance: ${tokenOutBalance}`} />}
                     style={{border:"1px solid #502199", borderRadius: "10px"}}
                     value={tokenOut.label ? tokenOut.label : "BANANA"}
                     onChange={(event, newValue) => {
                         if(newValue.address !== tokenIn.address) {
                             setTokenOut(newValue);
-                            getTokenOutBalance(newValue.address);
+                            setTokenOutBalance(getTokenBalance(newValue.address));
                             console.log(tokenOutBalance);
                         } 
                     }}

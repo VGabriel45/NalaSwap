@@ -9,7 +9,7 @@ async function main() {
 
   await nalaRouter.deployed();
 
-  console.log(`LogiRouter deployed at address ${nalaRouter.address}`);
+  console.log(`NalaRouter deployed at address ${nalaRouter.address}`);
 }
 
 main().catch((error) => {

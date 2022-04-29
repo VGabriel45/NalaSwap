@@ -8,21 +8,24 @@ import Button from '@mui/material/Button';
 import Tooltip from '@mui/material/Tooltip';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import Stack from '@mui/material/Stack';
+import { useNavigate } from 'react-router-dom';
 
 import logo from "../logo.svg";
 
 import { ethers } from "ethers";
 import React, { useEffect, useState } from "react";
 
-const pages = ['Trade', 'Farm', 'About'];
+const pages = ['Swap', 'Farm', 'About'];
 
 const ResponsiveAppBar = () => {
-  const [anchorElNav, setAnchorElNav] = React.useState(null);
-  const [anchorElUser, setAnchorElUser] = React.useState(null);
+    const [anchorElNav, setAnchorElNav] = React.useState(null);
+    const [anchorElUser, setAnchorElUser] = React.useState(null);
 
     const [errorMessage, setErrorMessage] = useState(null);
     const [account, setAccount] = useState(null);
     const [balance, setBalance] = useState(null);
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (window.ethereum) {
@@ -67,7 +70,7 @@ const ResponsiveAppBar = () => {
         setBalance(null);
     };
 
-  const handleCloseNavMenu = () => {
+  const handlePageChange = () => {
     setAnchorElNav(null);
   };
 
@@ -98,14 +101,13 @@ const ResponsiveAppBar = () => {
                     {pages.map((page) => (
                         <Button
                             key={page}
-                            onClick={handleCloseNavMenu}
+                            onClick={()=> navigate(page.toLowerCase())}
                             sx={{ my: 1, color: 'yellow', display: 'block' }}
                         >
                             {page}
                         </Button>
                     ))}
                 </Box>
-
                 <Box sx={{ flexGrow: 0, display: { xs: 'none', md: 'flex' } }}>
                     <Tooltip title="Connect to metamask">
                     <IconButton onClick={connectHandler} sx={{ p: 0 }}>
