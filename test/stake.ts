@@ -84,4 +84,36 @@ describe("NalaRouter testing", function () {
         console.log(isStakeholder2[0]);
         console.log(stakerBalance2);
     });
+
+    it('Should withdaw tokens without reverting and get rewards by time passed', async () => {
+
+        console.log(`Balance before staking: ${await nalaToken.balanceOf(owner.getAddress())}`);
+        await nalaToken.connect(owner).approve(stakingContract.address, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        await stakingContract.connect(owner).stakeTokens(ethers.utils.parseEther("100"));
+        console.log(`Balance 1: ${await stakingContract.stakerBalance(owner.getAddress())}`);
+
+        await nalaToken.connect(owner).approve(stakingContract.address, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        await stakingContract.connect(owner).stakeTokens(ethers.utils.parseEther("100"));
+        console.log(`Balance 2: ${await stakingContract.stakerBalance(owner.getAddress())}`);
+
+        await nalaToken.connect(owner).approve(stakingContract.address, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        await stakingContract.connect(owner).stakeTokens(ethers.utils.parseEther("100"));
+        console.log(`Balance 3: ${await stakingContract.stakerBalance(owner.getAddress())}`);
+
+        console.log(`Current stakes: ${await stakingContract.userCurrentStakes(owner.getAddress())}`);
+
+        for (let index = 0; index < 500; index++) {
+            await ethers.provider.send('evm_mine');
+        }
+
+        const withdrawAll_Tx = await stakingContract.connect(owner).withdrawAllTokens();
+        console.log(withdrawAll_Tx);
+        const stakerBalance2 = await stakingContract.stakerBalance(owner.getAddress());
+        console.log(stakerBalance2);
+    });
+
+    it('Should revert if user tries to stake 0 or less tokens', async () => {
+        await nalaToken.connect(owner).approve(stakingContract.address, "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+        const tx = await stakingContract.connect(owner).stakeTokens(ethers.utils.parseEther("0"));
+    });
 })

@@ -22,7 +22,7 @@ contract Staking is ReentrancyGuard {
     uint256 public lockingPeriod;
 
     mapping(address => uint256) public stakerBalance; 
-    mapping(address => mapping(uint256 => Stake)) public stakersStakes;
+    // mapping(address => mapping(uint256 => Stake)) public stakersStakes;
     mapping(address => uint256) public userCurrentStakes;
     mapping(address => uint256) public rewardsAccumulated;
     mapping(address => bool) public autoCompound;
@@ -97,6 +97,19 @@ contract Staking is ReentrancyGuard {
         emit AutoCompoundSet(user, autoCompound[user]);
     }
 
+    function compound() external {
+        address staker = msg.sender;
+        uint256 amountToCompound = 0;
+        for (uint256 index = 0; index < currentStakes.length; index++) {
+            if(currentStakes[index].staker == staker) {
+                uint256 rewards = calculateRewards(currentStakes[index].stakeStartDate, block.timestamp, currentStakes[index].amount);
+                amountToCompound = amountToCompound + rewards;
+                console.log(amountToCompound);
+            }
+        }
+        stakerBalance[staker] = amountToCompound;
+    }
+
     /**
     * @notice A method for a stakeholder to stake tokens.
     * @param amount The amount of tokens to stake.
@@ -125,7 +138,7 @@ contract Staking is ReentrancyGuard {
             if(block.timestamp - currentStakes[index].stakeStartDate >= 1 minutes) {
                 console.log("LINE 126");
                 stakerBalance[staker] = stakerBalance[staker] - amount;
-                rewardAmount = calculateRewards(staker, currentStakes[index].stakeStartDate, block.timestamp, amount);
+                rewardAmount = calculateRewards(currentStakes[index].stakeStartDate, block.timestamp, amount);
                 delete currentStakes[index];
                 break;
             }
@@ -140,17 +153,51 @@ contract Staking is ReentrancyGuard {
         if (isStillStaker == false) removeStakeholder(staker);
         uint256 stakerBalanceAfter = stakerBalance[staker];
         require(stakerBalanceAfter < stakerBalanceBefore, "Withdraw not allowed yet");
-        uint256 amountToBurn = amount / 100 * 2;
-        IERC20(stakingToken).transfer(0x000000000000000000000000000000000000dEaD, amountToBurn);
-        console.log(IERC20(stakingToken).balanceOf(staker));
+        uint256 amountToBurn = burn(amount + rewardAmount);
         IERC20(stakingToken).transfer(staker, amount + rewardAmount - amountToBurn);
-        console.log(IERC20(stakingToken).balanceOf(staker));
     }
 
-    function calculateRewards(address staker, uint256 startStakeDate, uint256 endStakeDate, uint256 amountStaked) internal view returns(uint256) {
+    /**
+    * @notice A method for a stakeholder to withdraw all staked tokens.
+    */
+    function withdrawAllTokens() external nonReentrant {
+        address staker = msg.sender;
+        uint256 stakerBalanceBefore = stakerBalance[staker];
+        uint256 rewardAmount = 0;
+        uint256 availableToWithdraw;
+        for (uint256 index = 0; index < currentStakes.length; index++) {
+            if(block.timestamp - currentStakes[index].stakeStartDate >= 1 minutes) {
+                console.log("LINE 126");
+                uint256 reward = calculateRewards(currentStakes[index].stakeStartDate, block.timestamp, availableToWithdraw);
+                availableToWithdraw = availableToWithdraw + currentStakes[index].amount + reward;
+                stakerBalance[staker] = stakerBalance[staker] - currentStakes[index].amount;
+                delete currentStakes[index];
+            }
+        }
+        bool isStillStaker = false;
+        for (uint256 index = 0; index < currentStakes.length; index++) {
+            if(currentStakes[index].staker == staker) {
+                isStillStaker = true;
+                break;
+            }
+        }
+        if (isStillStaker == false) removeStakeholder(staker);
+        uint256 stakerBalanceAfter = stakerBalance[staker];
+        require(stakerBalanceAfter < stakerBalanceBefore, "Withdraw not allowed yet");
+        uint256 amountToBurn = burn(availableToWithdraw + rewardAmount);
+        IERC20(stakingToken).transfer(staker, availableToWithdraw + rewardAmount - amountToBurn);
+    }
+
+    function calculateRewards(uint256 startStakeDate, uint256 endStakeDate, uint256 amountStaked) public view returns(uint256) {
         uint256 timeStaked = endStakeDate - startStakeDate;
         uint256 rewardAmount = ((amountStaked / 100000000000000000000 * 1) * amountStaked) + timeStaked * (amountStaked / 100000000000000000000 * 2);
         return rewardAmount;
+    }
+
+    function burn(uint256 amount) public returns(uint256){
+        uint256 amountToBurn = amount / 100 * 2;
+        IERC20(stakingToken).transfer(0x000000000000000000000000000000000000dEaD, amountToBurn);
+        return amountToBurn;
     }
 
 }
