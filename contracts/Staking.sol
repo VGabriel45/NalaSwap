@@ -9,7 +9,7 @@ contract Staking is ReentrancyGuard {
     struct Stake {
         uint256 id;
         uint256 amount;
-        uint256 stakeStartDate;
+        uint256 stakeStartBlock;
         address staker;
     }
 
@@ -20,6 +20,7 @@ contract Staking is ReentrancyGuard {
     address public rewardToken;
 
     uint256 public lockingPeriod;
+    uint256 public rewardPerBlock;
 
     mapping(address => uint256) public stakerBalance; 
     // mapping(address => mapping(uint256 => Stake)) public stakersStakes;
@@ -34,6 +35,25 @@ contract Staking is ReentrancyGuard {
         require(_rewardToken != address(0), "Reward token cannot be address 0");
         stakingToken = _stakingToken;
         rewardToken = _rewardToken;
+        rewardPerBlock = 100000000000000000;
+    }
+
+    function getBalance(address staker) external view returns(uint256 balance){
+        return stakerBalance[staker];
+    }
+
+    function getBalanceWithRewards(address staker) external view returns(uint256 balance){
+        uint256 startingBlock = 0;
+        for (uint256 index = 0; index < currentStakes.length; index++) {
+            if(currentStakes[index].staker == staker) {
+                startingBlock = currentStakes[index].stakeStartBlock;
+            }
+        }
+        uint256 stakerBalance = stakerBalance[staker];
+        uint256 rewards = calculateRewards(startingBlock, block.number, stakerBalance);
+        console.log(rewards);
+        uint256 totalBalance = stakerBalance + rewards;
+        return totalBalance;
     }
 
     /**
@@ -102,9 +122,8 @@ contract Staking is ReentrancyGuard {
         uint256 amountToCompound = 0;
         for (uint256 index = 0; index < currentStakes.length; index++) {
             if(currentStakes[index].staker == staker) {
-                uint256 rewards = calculateRewards(currentStakes[index].stakeStartDate, block.timestamp, currentStakes[index].amount);
+                uint256 rewards = calculateRewards(currentStakes[index].stakeStartBlock, block.number, currentStakes[index].amount);
                 amountToCompound = amountToCompound + rewards;
-                console.log(amountToCompound);
             }
         }
         stakerBalance[staker] = amountToCompound;
@@ -115,13 +134,14 @@ contract Staking is ReentrancyGuard {
     * @param amount The amount of tokens to stake.
     */
     function stakeTokens(uint256 amount) external nonReentrant {
+        require(amount <= IERC20(rewardToken).totalSupply() / 3, "Max staked amount cannot be bigger than 33% of total supply");
         require(amount > 0, "Cannot stake 0 tokens");
         require(IERC20(stakingToken).balanceOf(msg.sender) >= amount, "Not enough balance");
         address staker = msg.sender;
         if(stakerBalance[staker] == 0) addStakeholder(staker);
         stakerBalance[staker] = stakerBalance[staker] + amount;
         userCurrentStakes[staker] = userCurrentStakes[staker] + 1;
-        currentStakes.push(Stake(userCurrentStakes[staker] + 1, amount, block.timestamp, staker));
+        currentStakes.push(Stake(userCurrentStakes[staker] + 1, amount, block.number, staker));
         IERC20(stakingToken).transferFrom(staker, address(this), amount);
     }
 
@@ -135,10 +155,10 @@ contract Staking is ReentrancyGuard {
         uint256 stakerBalanceBefore = stakerBalance[staker];
         uint256 rewardAmount = 0;
         for (uint256 index = 0; index < currentStakes.length; index++) {
-            if(block.timestamp - currentStakes[index].stakeStartDate >= 1 minutes) {
+            if(block.number - currentStakes[index].stakeStartBlock >= 1) {
                 console.log("LINE 126");
                 stakerBalance[staker] = stakerBalance[staker] - amount;
-                rewardAmount = calculateRewards(currentStakes[index].stakeStartDate, block.timestamp, amount);
+                rewardAmount = calculateRewards(currentStakes[index].stakeStartBlock, block.number, amount);
                 delete currentStakes[index];
                 break;
             }
@@ -166,9 +186,9 @@ contract Staking is ReentrancyGuard {
         uint256 rewardAmount = 0;
         uint256 availableToWithdraw;
         for (uint256 index = 0; index < currentStakes.length; index++) {
-            if(block.timestamp - currentStakes[index].stakeStartDate >= 1 minutes) {
+            if(block.number - currentStakes[index].stakeStartBlock > 1) {
                 console.log("LINE 126");
-                uint256 reward = calculateRewards(currentStakes[index].stakeStartDate, block.timestamp, availableToWithdraw);
+                uint256 reward = calculateRewards(currentStakes[index].stakeStartBlock, block.number, availableToWithdraw);
                 availableToWithdraw = availableToWithdraw + currentStakes[index].amount + reward;
                 stakerBalance[staker] = stakerBalance[staker] - currentStakes[index].amount;
                 delete currentStakes[index];
@@ -184,14 +204,22 @@ contract Staking is ReentrancyGuard {
         if (isStillStaker == false) removeStakeholder(staker);
         uint256 stakerBalanceAfter = stakerBalance[staker];
         require(stakerBalanceAfter < stakerBalanceBefore, "Withdraw not allowed yet");
-        uint256 amountToBurn = burn(availableToWithdraw + rewardAmount);
-        IERC20(stakingToken).transfer(staker, availableToWithdraw + rewardAmount - amountToBurn);
+        // uint256 amountToBurn = burn(availableToWithdraw + rewardAmount);
+        IERC20(stakingToken).transfer(staker, availableToWithdraw + rewardAmount);
     }
 
-    function calculateRewards(uint256 startStakeDate, uint256 endStakeDate, uint256 amountStaked) public view returns(uint256) {
-        uint256 timeStaked = endStakeDate - startStakeDate;
-        uint256 rewardAmount = ((amountStaked / 100000000000000000000 * 1) * amountStaked) + timeStaked * (amountStaked / 100000000000000000000 * 2);
+    function calculateRewards(uint256 stakeStartBlock, uint256 stakeEndBlock, uint256 amountStaked) public view returns(uint256) {
+        uint256 timeStaked = stakeEndBlock - stakeStartBlock;
+        console.log(timeStaked);
+        uint256 rewardAmount = rewardPerBlock * timeStaked;
+        console.log(rewardPerBlock);
         return rewardAmount;
+    }
+
+    function getRewardsPerDay(address staker) public view returns(uint256) {
+        uint256 stakedAmount = stakerBalance[staker];
+        uint256 rewardsPerDay = stakedAmount / 1000; 
+        return rewardsPerDay;
     }
 
     function burn(uint256 amount) public returns(uint256){

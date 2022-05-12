@@ -7,6 +7,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { ethers } from "ethers";
 import React, { useEffect, useState } from "react";
 import StakePage from "./pages/StakePage";
+import NftsPage from "./pages/NftsPage";
 
 function App() {
 
@@ -37,8 +38,8 @@ function App() {
                 <img src={logo} style={{width:"90%", height:"30vh"}} className="App-logo" alt="logo" />
                   <Routes >
                     <Route path="/swap" element={<HomePage/>} exact/>
-                    <Route path="/farm" element={<StakePage/>} exact/>
-                    {/* <Route path="/about" element={<AboutPage/>} /> */}
+                    <Route path="/stake" element={<StakePage/>} exact/>
+                    <Route path="/nft" element={<NftsPage/>} />
                   </Routes>
               </div>
               : ""

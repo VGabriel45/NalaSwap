@@ -26,7 +26,7 @@ export default function HomePage () {
 
     const [loadingTransaction, setLoadingTransaction] = useState(false);
 
-    const contractAddress = "0xD4B10Be92Db6A7b08e09D7509dF9b889d297Da1C";
+    const contractAddress = "0xd9d972d687Bc511D833fe2550C456fEC1a857D2C";
 
     useEffect(() => {
         const getBalances = async () => {

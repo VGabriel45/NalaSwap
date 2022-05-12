@@ -15,7 +15,7 @@ import logo from "../logo.svg";
 import { ethers } from "ethers";
 import React, { useEffect, useState } from "react";
 
-const pages = ['Swap', 'Farm', 'About'];
+const pages = ['Swap', 'Stake', 'About'];
 
 const ResponsiveAppBar = () => {
     const [anchorElNav, setAnchorElNav] = React.useState(null);

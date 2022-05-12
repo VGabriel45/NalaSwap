@@ -216,7 +216,7 @@ contract NalaToken is Context, IERC20, IERC20Metadata {
 
         // burn 2% on each transfer
         uint256 amountToBurn = amount / 100 * 2;
-        _burn(from, amountToBurn);
+        // _burn(from, amountToBurn);
 
         _balances[to] += amount - amountToBurn;
 
